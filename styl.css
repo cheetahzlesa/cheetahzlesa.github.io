@@ -1,0 +1,148 @@
+/* === Old-paper štýl pozadia === */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Times New Roman", Georgia, serif;
+  background: #f5f0e6; /* warm paper tone */
+  background-image: radial-gradient(circle at top left, #f9f6f1, #e6ddc5);
+  color: #2b2b2b;
+  line-height: 1.6;
+}
+
+/* === Hlavný box === */
+.container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid #a08d6d;
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  font-size: 1.1rem;
+  box-sizing: border-box;
+}
+
+/* === Nadpis === */
+.container h1 {
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 2.2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  letter-spacing: 1px;
+  border-bottom: 2px solid #444;
+  padding-bottom: 0.5rem;
+}
+
+/* === Dátum === */
+.container .date {
+  text-align: center;
+  font-style: italic;
+  color: #555;
+  margin: 1rem 0 1.5rem;
+}
+
+/* === Obrázok === */
+.container figure {
+  display: block;
+  margin: 0 auto 1rem;
+  max-width: 100%;
+  text-align: center;
+}
+
+.container figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+/* === Text pod obrázkom === */
+.container .spomienka-text {
+  text-align: justify;
+  text-align-last: center;
+  margin: 1.25rem auto 2rem;
+  max-width: 70ch;
+}
+
+/* === Úloha, zadanie === */
+.container .section-title {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.25rem;
+  margin: 2rem 0 0.75rem;
+}
+
+
+/* === Tlačidlá === */
+.btn-main, .btn-dark {
+  display: inline-block;
+  margin: 1rem auto 0;         /* vycentrovanie */
+  padding: 0.75rem 1.75rem;    /* väčšie */
+  font-size: 1.15rem;          /* výraznejší text */
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.25s ease, transform 0.1s ease;
+  text-align: center;
+}
+
+/* kontajner pre centrovanie tlačidla */
+.btn-main,
+.btn-dark {
+  display: block;              /* zaberá celý riadok */
+  width: fit-content;          /* ale len do šírky textu */
+  margin: 1.5rem auto;         /* auto = centrovanie horizontálne */
+}
+
+/* tmavé tlačidlo (ako bootstrap .btn-dark) */
+.btn-dark {
+  background: #222;
+  color: #fff;
+  border: none;
+  box-shadow: 0 0 10px rgba(0,0,0,0.25);
+}
+.btn-dark:hover {
+  background: #444;
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(0,0,0,0.3);
+}
+
+/* hlavné tlačidlo (návrat na hlavnú stránku) */
+.btn-main {
+  background: #a08d6d;
+  color: #fff;
+  border: none;
+  box-shadow: 0 0 10px rgba(0,0,0,0.25);
+}
+.btn-main:hover {
+  background: #8e7c5c;
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(0,0,0,0.3);
+}
+
+
+/* === Footer === */
+.container footer {
+  text-align: center;
+  color: #555;
+  font-size: 0.95rem;
+  margin-top: 2rem;
+}
+
+/* === Mobilné prispôsobenie === */
+@media (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+  .container h1 {
+    font-size: 1.5rem;
+  }
+  .container figure img {
+    max-width: 100%;
+  }
+}

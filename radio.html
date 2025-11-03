@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rádio Slobodná Európa</title>
+  <meta name="color-scheme" content="light">
+  <style>
+    :root{
+      --blue:#0b1f4b;      /* hlboká modrá pozadia */
+      --paper:#f5f2e8;     /* mierne zažltnutý “papier” */
+      --ink:#111;          /* tmavý text */
+      --accent:#c5372c;    /* červená z loga */
+      --muted:#6b7280;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--blue);
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", "DejaVu Sans", sans-serif;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .poster{
+      width:min(900px, 92vw);
+      background:var(--paper);
+      border-radius:12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 #fff8, inset 0 -1px 0 #0002;
+      padding:28px 28px 20px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    /* jemné “scan lines” pre retro pocit */
+    .poster::after{
+      content:"";
+      position:absolute; inset:0;
+      background:repeating-linear-gradient(
+        to bottom, rgba(0,0,0,.04), rgba(0,0,0,.04) 1px,
+        transparent 1px, transparent 3px
+      );
+      pointer-events:none;
+      mix-blend-mode:multiply;
+    }
+
+    header{
+      display:flex; gap:20px; align-items:center;
+      border-bottom:3px double #c9c3b6;
+      padding-bottom:16px; margin-bottom:18px;
+    }
+    .logo{
+      width:120px; height:auto; flex:0 0 auto;
+      filter: saturate(0.95) contrast(1.05);
+    }
+    .titles{
+      flex:1 1 auto;
+    }
+    h1{
+      margin:0 0 4px 0;
+      font-size:clamp(22px, 3.5vw, 34px);
+      letter-spacing:.5px;
+      text-transform:uppercase;
+      color:var(--accent);
+      font-weight:800;
+    }
+    .subtitle{
+      margin:0; color:#2c2c2c; letter-spacing:.4px;
+      font-size:clamp(14px, 2.2vw, 18px);
+    }
+
+    .controls{
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      margin:14px 0 6px;
+    }
+    .btn{
+      appearance:none; border:2px solid var(--accent);
+      background:transparent; color:var(--accent);
+      padding:10px 16px; border-radius:10px;
+      font-weight:700; letter-spacing:.4px;
+      text-transform:uppercase; cursor:pointer;
+      transition:transform .06s ease, background .2s ease, color .2s ease;
+    }
+    .btn:hover{ background:var(--accent); color:#fff; transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
+
+    .btn-ghost{
+      border:2px dashed #9b9b9b; color:#444;
+    }
+    .btn-ghost:hover{ background:#111; color:#fff; border-color:#111; }
+
+    .status{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+      font-size:14px; color:#333; padding:6px 10px;
+      background:#fff; border:1px solid #e7e2d7; border-radius:8px;
+      min-height:32px; display:flex; align-items:center;
+    }
+
+    .article{
+      margin-top:18px; line-height:1.6; color:#1f2937;
+    }
+    .article h2{
+      margin:18px 0 8px; font-size:18px; color:#111; text-transform:uppercase; letter-spacing:.4px;
+    }
+    .article p{ margin:8px 0; }
+    .article small{ color:var(--muted); }
+
+    /* skrytý audio element */
+    audio{ position:absolute; width:0; height:0; opacity:0; pointer-events:none; }
+	
+	/* ON AIR lampa */
+.lamp{
+  margin-left:auto;
+  width:16px; height:16px; border-radius:50%;
+  background:#6a0b0b; box-shadow:0 0 0 2px #4d0000 inset;
+  align-self:center;
+}
+.lamp.on{
+  background:#ff4141;
+  box-shadow:
+    0 0 10px #ff4141,
+    0 0 22px #ff4141,
+    0 0 38px rgba(255,65,65,.7);
+  animation: lampBlink 1s steps(2,end) infinite;
+}
+@keyframes lampBlink { 50% { opacity:.35; } }
+  </style>
+</head>
+<body>
+  <main class="poster">
+    <header>
+      <!-- uprav cestu na svoje logo -->
+      <img class="logo" src="Slobodna_europa.jpg" alt="Rádio Slobodná Európa – logo">
+      <div class="titles">
+        <h1>Rádio Slobodná Európa</h1>
+        <p class="subtitle">Praha • Bratislava • 1989</p>
+      </div>
+	  <div id="lamp" class="lamp" aria-label="On Air" title="On Air"></div>
+    </header>
+
+    <section class="controls">
+      <button id="playBtn" class="btn">▶ Play / Sync</button>
+      <a class="btn btn-ghost" href="main.php">↩ Odísť</a>
+    </section>
+
+    <div id="status" class="status">Pripravené.</div>
+
+    <section class="article">
+      <h2>Čo bolo Rádio Slobodná Európa?</h2>
+      <p>
+        Rádio Slobodná Európa (RSE) bolo nezávislé rozhlasové vysielanie
+        financované zo Západu, ktoré od 50. rokov prinášalo do krajín
+        východného bloku správy a publicistiku mimo cenzúry. Pre poslucháčov
+        v Československu bolo v 70.–80. rokoch jedným z mála zdrojov overených
+        informácií, analýz a kontaktu so svetom.
+      </p>
+      <p>
+        Vysielanie úradná moc rušila, napriek tomu si cestu k publiku nachádzalo –
+        najmä počas kríz: od invázie 1968 až po rok 1989. RSE dávalo priestor
+        necenzúrovaným informáciám, listom poslucháčov aj kultúre, a zásadne prispelo k
+        informačnej gramotnosti verejnosti pred Nežnou revolúciou.
+      </p>
+      <p><small>Táto stránka je pocta dobovej estetike a funguje ako synchronizované „rádio“ s pravidelnými reportážami o :00 a :30.</small></p>
+    </section>
+
+    <!-- skrytý prehrávač -->
+    <audio id="player" preload="auto" playsinline></audio>
+  </main>
+
+  <script>
+    const player  = document.getElementById('player');
+    const statusEl= document.getElementById('status');
+    const playBtn = document.getElementById('playBtn');
+	const lamp = document.getElementById('lamp');
+    let nextTimer = null;
+	player.addEventListener('pause',  () => lamp.classList.remove('on'));
+	player.addEventListener('ended',  () => lamp.classList.remove('on'));
+
+    function setStatus(msg){ statusEl.textContent = msg; }
+
+    async function fetchSchedule(){
+      const r = await fetch('schedule.php?ts=' + Date.now());
+      if(!r.ok) throw new Error('schedule HTTP ' + r.status);
+      return await r.json();
+    }
+
+    async function syncAndPlay(){
+      try{
+        const data = await fetchSchedule();
+
+        if(data.type === 'silence'){
+          setStatus('Žiadne aktívne skladby. Skús neskôr.');
+          return;
+        }
+
+        // nastav zdroj (opráši relatívnu /mp3 cestu na aktuálnu base-path)
+        const url = new URL(data.url, window.location.href).toString();
+        player.src = url;
+
+        // fallback – ak by sa metadata nenačítali
+        let metaTimer = setTimeout(()=>{
+          setStatus('Načítavam zvuk… (' + url + ')');
+        }, 400);
+
+        const onLoaded = async () => {
+          clearTimeout(metaTimer);
+          player.currentTime = Math.max(0, data.position_sec || 0);
+          try { player.addEventListener('playing', () => lamp.classList.add('on'), { once: true });
+
+  await player.play();           // spustí prehrávanie
+  lamp.classList.add('on');    }
+          catch(e){ console.warn('Autoplay blokovaný:', e); }
+          setStatus(
+            (data.type==='report' ? '📰 Reportáž' : '🎵 Hudba') +
+            ' • offset ' + Math.floor(data.position_sec||0) + ' s'
+          );
+          player.removeEventListener('loadedmetadata', onLoaded);
+        };
+        player.addEventListener('loadedmetadata', onLoaded);
+
+        // error debug
+        player.onerror = () => {
+          setStatus('Chyba prehrávača. Skontroluj URL súboru.');
+          console.error('Media error:', player.error, 'src=', player.src);
+        };
+
+        // re-sync po dohraní, alebo podľa odporúčania servera
+        if(nextTimer) clearTimeout(nextTimer);
+        const ms = Math.max(1000, (data.refetch_after_sec || 10) * 1000);
+        nextTimer = setTimeout(syncAndPlay, ms);
+
+      }catch(e){
+        console.error(e);
+        setStatus('Chyba pri načítaní plánu. Skúsim znova o 10 s…');
+        if(nextTimer) clearTimeout(nextTimer);
+        nextTimer = setTimeout(syncAndPlay, 10000);
+      }
+    }
+
+    // tlačidlo
+    playBtn.addEventListener('click', syncAndPlay);
+    // pre istotu skúsiť sync aj automaticky (ak prehliadač dovolí)
+    window.addEventListener('load', () => { setTimeout(syncAndPlay, 200); });
+	player.addEventListener('pause',  () => lamp.classList.remove('on'));
+player.addEventListener('ended',  () => lamp.classList.remove('on'));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || player.paused) lamp.classList.remove('on');
+});
+  </script>
+</body>
+</html>
