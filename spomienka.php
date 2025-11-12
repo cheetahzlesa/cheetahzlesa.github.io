@@ -1,4 +1,5 @@
 <?php
+require_once 'configdb.php';
 function render_spomienka(string $nazov, string $obr, string $text, ?string $zadanie = null, $id = null, ?int $t = null): void {
 $base = new DateTime('1989-11-01 00:00:00', new DateTimeZone('UTC'));
 $t = $t ?? 0;
@@ -52,7 +53,7 @@ $showTask = isset($id) && $id !== '' && $id !== false;
 <footer style="text-align:center; margin-top:2rem; font-size:0.95rem; color:#555;">
   &copy; <?php echo date('Y'); ?> 70. Zbor Bizón Víťazí
   <br>
-  <a href="main.php" class="btn-main">⬅️ Vrátiť sa na hlavnú stránku</a>
+  <a href="index.php" class="btn-main">⬅️ Vrátiť sa na hlavnú stránku</a>
 </footer>
 
 </div>
@@ -64,10 +65,7 @@ $showTask = isset($id) && $id !== '' && $id !== false;
 <?php }
 
 
-$mysqli = @new mysqli('localhost', 'root', '', '');
-if ($mysqli->connect_errno) { die("Chyba pri spojení: " . $mysqli->connect_error); }
-$mysqli->query("CREATE DATABASE IF NOT EXISTS mestska_hra CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;");
-$mysqli->select_db('mestska_hra');
+
 
 /* --- tabuľka spomienky --- */
 $mysqli->query("

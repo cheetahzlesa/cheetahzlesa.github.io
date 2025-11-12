@@ -4,7 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Europe/Bratislava');
 
 // ==== DB pripojenie (podľa tvojho zadania) ====
-$mysqli = @new mysqli('localhost', 'root', '', '');
+require_once 'configdb.php';
 if ($mysqli->connect_errno) {
   http_response_code(500);
   echo json_encode(['error'=>true,'message'=>'Chyba pri spojení: '.$mysqli->connect_error]);

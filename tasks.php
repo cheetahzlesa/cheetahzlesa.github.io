@@ -4,12 +4,10 @@
   echo '<link rel="stylesheet" href="styl.css">';
   
 session_start();
+require_once 'configdb.php';
 header('Content-Type: text/html; charset=utf-8');
 
 /* === DB INIT (auto-create DB + tables) === */
-$mysqli = @new mysqli('localhost', 'root', '', '');
-if ($mysqli->connect_errno) { die("Chyba pri spojení: " . $mysqli->connect_error); }
-$mysqli->select_db('mestska_hra');
 
 $mysqli->query("
 CREATE TABLE IF NOT EXISTS timy (
@@ -161,6 +159,7 @@ function task_1(mysqli $db, string $returnUrl): void {
     $justFinishedPoints = $points;
 }
 
+
     // Render
    
     echo '<title>Úloha 1 – Podpora</title></head><body>';
@@ -196,7 +195,7 @@ function task_1(mysqli $db, string $returnUrl): void {
     echo '</section>';
 	global $isLoggedIn;
 	if (!$isLoggedIn){ echo '<p style="text-align:center;margin-top:1rem;"><strong>Pre plnenie úlohy sa prihláste.</strong></p>';
-    echo '<p style="text-align:center;"><a href="main.php" class="btn btn-dark">⬅️ Vrátiť sa na hlavnú stránku</a></p>';
+    echo '<p style="text-align:center;"><a href="index.php" class="btn btn-dark">⬅️ Vrátiť sa na hlavnú stránku</a></p>';
     echo '</main></body></html>';
     return;}
 		
@@ -234,7 +233,7 @@ function task_1(mysqli $db, string $returnUrl): void {
     ?> <footer style="text-align:center; margin-top:2rem; font-size:0.95rem; color:#555;">
   &copy; <?php echo date('Y'); ?> 70. Zbor Bizón Víťazí
   <br>
-  <a href="main.php" class="btn-main">⬅️ Vrátiť sa na hlavnú stránku</a>
+  <a href="index.php" class="btn-main">⬅️ Vrátiť sa na hlavnú stránku</a>
 </footer>
 </main></body></html>
 <?php
@@ -334,7 +333,7 @@ Vplyv  = 10 − čas_v_minútach / 5
   }
   global $isLoggedIn;
 	if (!$isLoggedIn){ echo '<p style="text-align:center;margin-top:1rem;"><strong>Pre plnenie úlohy sa prihláste.</strong></p>';
-    echo '<p style="text-align:center;"><a href="main.php" class="btn btn-dark">⬅️ Vrátiť sa na hlavnú stránku</a></p>';
+    echo '<p style="text-align:center;"><a href="index.php" class="btn btn-dark">⬅️ Vrátiť sa na hlavnú stránku</a></p>';
     echo '</main></body></html>';
     return;}
 
@@ -443,15 +442,182 @@ Vplyv  = 10 − čas_v_minútach / 5
 
   echo '</main></body></html>';
 }
+function task_3(mysqli $db, string $returnUrl): void {
+    // Identita a ID úlohy
+    $userId = $_SESSION['user_id'] ?? 1;
+    $taskId = 3;
+
+    // Je POST?
+    $isPost   = ($_SERVER['REQUEST_METHOD'] === 'POST');
+    // Ak to NIE JE POST, skús nacitat stav (už splnené?)
+    $existing = $isPost ? null : get_score($db, $userId, $taskId);
+
+    // Premenné pre POST spracovanie
+    $answerText = '';
+    $fileUrl    = null;
+    $error      = null;
+
+    // Spracovanie odovzdávky
+    if ($isPost && ($_POST['action'] ?? '') === 'submit_tvorba' && (int)($_POST['task_id'] ?? 0) === $taskId) {
+        // 1) Text
+        $answerText = trim($_POST['answer_text'] ?? '');
+        $lineCount  = 0;
+        if ($answerText !== '') {
+            foreach (preg_split("/\r\n|\n|\r/", $answerText) as $ln) {
+                if (trim($ln) !== '') $lineCount++;
+            }
+        }
+
+        // 2) Obrázok (voliteľný)
+        $hasImg = isset($_FILES['answer_image']) && is_uploaded_file($_FILES['answer_image']['tmp_name']);
+
+        // 3) Validácia: musí byť aspoň 16 veršov ALEBO nahratý obrázok
+        if (!$hasImg && $lineCount < 16) {
+            $error = 'Napíš aspoň 16 veršov, alebo nahraj fotku ručne písanej básne.';
+        }
+
+        // 4) Upload obrázka (ak je a zatiaľ bez chyby)
+        if (!$error && $hasImg) {
+            $allowed = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+            $mime = mime_content_type($_FILES['answer_image']['tmp_name']) ?: '';
+            if (!isset($allowed[$mime])) {
+                $error = 'Podporované formáty: JPG, PNG, WEBP.';
+            } elseif ($_FILES['answer_image']['size'] > 5*1024*1024) {
+                $error = 'Maximálna veľkosť je 5 MB.';
+            } else {
+                // cieľový priečinok
+                $uploadDirDisk = __DIR__ . '/uploads/submissions';
+                if (!is_dir($uploadDirDisk)) { @mkdir($uploadDirDisk, 0775, true); }
+                $ext    = $allowed[$mime];
+                $fname  = 't'.$taskId.'_u'.$userId.'_'.time().'.'.$ext;
+                $disk   = $uploadDirDisk . '/' . $fname;
+                if (!move_uploaded_file($_FILES['answer_image']['tmp_name'], $disk)) {
+                    $error = 'Nepodarilo sa uložiť obrázok.';
+                } else {
+                    // relatívna URL pre web
+                    $fileUrl = 'uploads/submissions/'.$fname;
+                }
+            }
+        }
+
+        // 5) Ak ok, zapíš do submissions a označ úlohu ako splnenú s 0 bodmi
+        if (!$error) {
+            // INSERT do submissions
+            $st = $db->prepare("INSERT INTO submissions (user_id, task_id, answer_text, file_url) VALUES (?, ?, ?, ?)");
+            $st->bind_param("iiss", $userId, $taskId, $answerText, $fileUrl);
+            $st->execute();
+            $st->close();
+
+            // Označ splnené (0 bodov) – kompatibilné s tvojím get_score/save_score
+            save_score($db, $userId, $taskId, 0);
+
+            // PRG: vyhneme sa re-POST-u
+            header("Location: tasks.php?id=".$taskId."&ok=1");
+            exit;
+        } else {
+            header("Location: tasks.php?id=".$taskId."&err=".urlencode($error));
+            exit;
+        }
+    }
+
+    // ---------- RENDER ----------
+    echo '<title>Úloha 3 – Tvorba do šuflíka</title></head><body>';
+    echo '<main class="container spomienka"><h1>Úloha 3 – Tvorba do šuflíka</h1><hr>';
+
+    // Zadanie – vždy viditeľné
+    echo '<section class="zadanie" style="text-align:left">';
+?>
+  <p><em>Nie všetko sa dá povedať nahlas. Niekedy musí myšlienka prejsť skrytými dvierkami — veršami.</em></p>
+
+  <h2>Úloha: Báseň so skrytým významom</h2>
+  <p>Napíš <strong>16-veršovú báseň</strong> so <em>skrytým významom</em>, ktorý odporuje režimu alebo povzbudzuje človeka pochybovať o režime. 
+     Môžeš ju napísať priamo sem, alebo priložiť <strong>fotografiu/scan</strong>, ak ju vytvoríš na papier.</p>
+
+  <h3>Podmienky odovzdania</h3>
+  <ul>
+    <li><strong>Text:</strong> aspoň 16 <em>neprázdnych</em> veršov (riadkov), <em>alebo</em></li>
+    <li><strong>Obrázok:</strong> fotka/scan básne (JPG/PNG/WEBP, max 5&nbsp;MB).</li>
+    <li><strong>Hodnotenie:</strong> 0 bodov (úloha sa len <em>eviduje</em> v odovzdaných prácach).</li>
+  </ul>
+<?php
+    echo '</section>';
+
+    // Ak nemáš login guard tu, môžeš použiť rovnaký pattern ako pri 1:
+    global $isLoggedIn;
+    if (!$isLoggedIn){
+        echo '<p style="text-align:center;margin-top:1rem;"><strong>Pre plnenie úlohy sa prihláste.</strong></p>';
+        echo '<p style="text-align:center;"><a href="index.php" class="btn btn-dark">⬅️ Vrátiť sa na hlavnú stránku</a></p>';
+        echo '</main></body></html>';
+        return;
+    }
+
+    // Info po odovzdaní alebo ak už splnené
+    $err = $_GET['err'] ?? '';
+    $ok  = isset($_GET['ok']);
+	$existingPoints = $isPost ? null : get_score($db, $userId, $taskId);
+	$completed      = ($existingPoints !== null);
+
+    if ($ok) {
+        echo '<section class="zadanie" style="text-align:left">';
+        echo '<div class="alert alert-success">Odovzdávka uložená. Úloha je označená ako splnená (0 bodov).</div>';
+        if ($returnUrl) echo '<p><a class="btn btn-dark" href="' . h($returnUrl) . '">Späť na spomienku</a></p>';
+        echo '</section>';
+    }
+    elseif ($completed && $existingPoints !== null) {
+    echo '<section class="zadanie" style="text-align:left">';
+    echo '<h2 class="section-title">Úlohu ste už splnili</h2>';
+    echo '<p>Za túto úlohu ste získali <strong>' . ($existingPoints >= 0 ? '+' : '') . $existingPoints . ' bodov</strong>.</p>';
+    if ($returnUrl) echo '<p><a class="btn btn-dark" href="'.h($returnUrl).'">Späť na spomienku</a></p>';
+    echo '</section>';
+    echo '</main></body></html>';
+    return;
+  }
+
+    // Formulár zobraz iba vtedy, keď ešte NIE JE splnená (a zároveň nie je práve PRG „ok=1“)
+    if (!$ok && !$isPost && $existing === null) {
+        if ($err) {
+            echo '<div class="alert alert-danger" style="max-width:720px;">' . h($err) . '</div>';
+        }
+
+        echo '<section><form method="post" action="tasks.php?id='. (int)$taskId .'" enctype="multipart/form-data" class="task-form">';
+        echo '<input type="hidden" name="action" value="submit_tvorba">';
+        echo '<input type="hidden" name="task_id" value="'. (int)$taskId .'">';
+
+        echo '<label for="answer_text" class="form-label"><strong>Tvoja báseň (text)</strong></label>';
+        echo '<textarea id="answer_text" name="answer_text" rows="18" placeholder="Sem napíš báseň..." style="width:100%;max-width:720px;"></textarea>';
+
+        echo '<div style="margin-top:.75rem">';
+        echo '  <label for="answer_image" class="form-label"><strong>Príloha (voliteľné)</strong> – fotka/scan (JPG/PNG/WEBP, max 5 MB)</label><br>';
+        echo '  <input id="answer_image" type="file" name="answer_image" accept="image/jpeg,image/png,image/webp">';
+        echo '</div>';
+
+        echo '<button type="submit" class="btn btn-dark btn-submit" style="margin-top:1rem">Odovzdať</button>';
+        echo '</form></section>';
+    }
+
+    // Pätička (ponechal som tvoj štýl)
+    ?>
+    <footer style="text-align:center; margin-top:2rem; font-size:0.95rem; color:#555;">
+      &copy; <?php echo date('Y'); ?> 70. Zbor Bizón Víťazí
+      <br>
+      <a href="index.php" class="btn-main">⬅️ Vrátiť sa na hlavnú stránku</a>
+    </footer>
+    </main></body></html>
+    <?php
+}
+
 
 
 /* ===================== ROUTER ===================== */
 $task   = $_GET['task'] ?? '';
 $return = $_GET['return'] ?? '';
+$task = (int)($_GET['id'] ?? ($_GET['task'] ?? 0));
+
 
 switch ((string)$task) {
     case '1': task_1($mysqli, $return); break;
 	case '2': task_2($mysqli, $return); break;
+	case '3': task_3($mysqli, $return); break;
     default:
         echo '<h1>Úlohy</h1><p>Neznáma alebo chýbajúca úloha.</p>';
         if ($return) echo '<p><a href="' . h($return) . '">Späť</a></p>';

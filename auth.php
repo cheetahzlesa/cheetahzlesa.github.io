@@ -3,11 +3,10 @@
 // Očakáva: session_start() už beží, $mysqli je mysqli spojenie
 
 header('Content-Type: text/html; charset=utf-8');
+require_once 'configdb.php';
 
+/* ======== DB INIT ======== */
 /* === DB INIT (auto-create DB + tables) === */
-$mysqli = @new mysqli('localhost', 'root', '', '');
-if ($mysqli->connect_errno) { die("Chyba pri spojení: " . $mysqli->connect_error); }
-$mysqli->select_db('mestska_hra');
 // --- Helpere (rovnaké ako v main.php) ---
 function auth_fetch_team_by_id(mysqli $db, int $id): ?array {
   $st = $db->prepare("SELECT id, name, pass_hash FROM timy WHERE id=?");
