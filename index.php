@@ -11,7 +11,7 @@ require_once 'configdb.php';
 $adminName = 'admin';
 $adminPass = 'Ty,ned0stane5_BoDy';
 $adminHash = password_hash($adminPass, PASSWORD_DEFAULT);
-$gameON = true;
+$gameON = false;
 
 
 $st = $mysqli->prepare("
@@ -63,16 +63,15 @@ if (!$teamExists) {
 }
 
 /* ======== Helpery ======== */
-function flash_set(string $msg): void { $_SESSION['flash_msg'] = $msg; }
-function flash_get(): string {
-  $m = $_SESSION['flash_msg'] ?? '';
+function flash_set($msg) { $_SESSION['flash_msg'] = $msg; }
+function flash_get() {
+  $m = isset($_SESSION['flash_msg']) ? $_SESSION['flash_msg'] : '';
   unset($_SESSION['flash_msg']);
   return $m;
 }
-
-// z authu už máš $isLoggedIn, $currentUserId, $currentTeamName
-
-function is_admin(mysqli $db, int $uid): bool {
+// ...
+function is_admin($db, $uid) {
+  $uid = (int)$uid;
   $st = $db->prepare("SELECT is_admin FROM timy WHERE id=?");
   $st->bind_param("i", $uid);
   $st->execute();
@@ -132,27 +131,35 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['team_id'], $_COOKIE['team_pa
 }
 
 // ==== FLAGY PRE ŠABLÓNU ====
-$isLoggedIn = isset($_SESSION['user_id'])
-           || (($_COOKIE['logged_in'] ?? '') === '1' && isset($_COOKIE['team_id'], $_COOKIE['team_pass']));
+$isLoggedIn = (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === '1')
+              || ( (isset($_COOKIE['logged_in']) ? $_COOKIE['logged_in'] : '') === '1'
+                   && isset($_COOKIE['team_id'], $_COOKIE['team_pass']) );
 
 $currentUserId = isset($_SESSION['user_id'])
   ? (int)$_SESSION['user_id']
-  : ((($_COOKIE['logged_in'] ?? '') === '1' && isset($_COOKIE['team_id']) && ctype_digit((string)$_COOKIE['team_id']))
+  : ( ((isset($_COOKIE['logged_in']) ? $_COOKIE['logged_in'] : '') === '1'
+       && isset($_COOKIE['team_id']) && ctype_digit((string)$_COOKIE['team_id']))
       ? (int)$_COOKIE['team_id']
       : 0);
 
 $loggedName = isset($_SESSION['team_name'])
   ? (string)$_SESSION['team_name']
-  : (string)($_COOKIE['team_name'] ?? '');
-function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+  : (string)(isset($_COOKIE['team_name']) ? $_COOKIE['team_name'] : '');
 
-function set_login_cookies(int $teamId, string $teamName, string $plainPass): void {
+function h($s) {
+  $flags = ENT_QUOTES | (defined('ENT_SUBSTITUTE') ? ENT_SUBSTITUTE : 0);
+  return htmlspecialchars($s, $flags, 'UTF-8');
+}
+
+function set_login_cookies($teamId, $teamName, $plainPass) {
+  $teamId = (int)$teamId;
   $exp = time() + 3600*24*30; // 30 dní
   setcookie('team_id',   (string)$teamId, $exp, '/', '', false, true);
   setcookie('team_name', $teamName,        $exp, '/', '', false, true);
-  setcookie('team_pass', $plainPass,       $exp, '/', '', false, true);
-  setcookie('logged_in', '1',              $exp, '/', '', false, true);   // ← PRIDANÉ
+  setcookie('logged_in', '1',              $exp, '/', '', false, true);
+  // POZOR: heslo by som do cookie nedával vôbec; ak musí byť, tak aspoň hash/HMAC a httponly.
 }
+
 
 function clear_login_cookies(): void {
   foreach (['team_id','team_name','team_pass','logged_in'] as $c) {       // ← PRIDANÉ logged_in
@@ -357,7 +364,7 @@ function admin_set_points(mysqli $db, int $userId, int $taskId, int $points): bo
 
 
 /* ======== Herný dátum (každých 5 min = +1 deň od 2.11.1989) ======== */
-$GAME_REAL_START = strtotime('2025-11-14 09:00:00 Europe/Bratislava'); // uprav podľa potreby
+$GAME_REAL_START = strtotime('2025-11-14 16:00:00 Europe/Bratislava'); // uprav podľa potreby
 $elapsed = max(0, time() - $GAME_REAL_START);
 $days = intdiv($elapsed, 300); // 300 s = 5 min
 $base = new DateTime('1989-11-02 00:00:00', new DateTimeZone('UTC'));
@@ -374,6 +381,7 @@ $q = $mysqli->query("
   LEFT JOIN score s ON s.user_id = t.id
   GROUP BY t.id, t.name
 ");
+
 while ($row = $q->fetch_assoc()) {
   $id  = (int)$row['id'];
   $pts = (int)$row['pts'];
@@ -386,7 +394,7 @@ $q->close();
 $teamsTotal = $team2 + $team3 + $team5;
 $communists = max(0, 1000 - $teamsTotal);
 
-$chartLabels = ['Komunisti', $name2, $name3, $name5];
+$chartLabels = ['Komunisti', 'Bratislavská päťka', 'Študentské hnutie', 'Umelci za slobodu'];
 $chartValues = [$communists, $team2, $team3, $team5];
 $Vyhra = ($communists < (1/3)*1000);
 
@@ -414,10 +422,10 @@ $loggedTeamName = $_SESSION['team_name'] ?? ($_COOKIE['team_name'] ?? '');
   <aside id="side-menu" class="side-menu">
     <nav>
       <button class="menu-item" data-open="home">Home</button>
-      <button class="menu-item" data-open="rules">Pravidlá</button>
-	  <?php if ($gameON){ ?>
+      <button class="menu-item" data-open="rules">Pravidlá</button>      
+	  <button class="menu-item" data-open="login">Prihlásenie</button>
+	  <?php if ($gameON || ($isLoggedIn && is_admin($mysqli, (int)$currentUserId))) { ?>
       <button class="menu-item" data-open="game">Hra</button>
-      <button class="menu-item" data-open="login">Prihlásenie</button>
 	  <button class="menu-item" data-open="Tuzex">Obchod</button>
 	  <?php if ($isLoggedIn && is_admin($mysqli, (int)$currentUserId)) { ?>
 	  <button class="menu-item" data-open="admin-panel">admin-panel</button>
@@ -438,16 +446,36 @@ $loggedTeamName = $_SESSION['team_name'] ?? ($_COOKIE['team_name'] ?? '');
 
     <!-- HOME -->
     <section id="home" class="panel">
-      <h3>Vitaj na Mestskej hre</h3>
-      <p>
-        Pozývame ťa na tematickú mestskú hru pripomínajúcu udalosti <strong>17. novembra</strong>.
-        Cez príbehy a úlohy sa posunieš časom späť do roku 1989 a budeš zbierať <em>vplyv</em> pre svoj tím.
-        Premýšľaj, rozhoduj sa a objavuj súvislosti, ktoré formovali slobodu, ktorú dnes berieme ako samozrejmosť.
-      </p>
-      <p>
-        Hru spúšťame <strong>14. 11. 2025</strong>. V našej „hernej časovej osi“ sa každý <strong>deň</strong> posunie
-        každých <strong>5 minút</strong>. Sleduj mapu, úlohy a priebežný stav.
-      </p>
+      <h2>Vitaj na stránke Mestskej Hry</h2>
+		<p>
+		<p><strong>November 1989</strong> - obdobie, keď sa ulice Slovenska a Česka zaplnili odvahou, nádejou a túžbou po slobode. Po desaťročiach neslobody a strachu sa ľudia rozhodli postaviť režimu, ktorý kontroloval ich slová, činy aj sny. 
+		Nežná revolúcia ukázala, že aj bez násilia možno zmeniť chod dejín, ak sa dokážeme zjednotiť.
+		</p>
+
+		<p>
+		V tejto tématickej mestskej hre sa <strong>presunieme späť do roku 1989</strong>. Pomocou spomienok, úloh a rozhodnutí zistíme, ako sa rodila sloboda, ktorú dnes berieme ako samozrejmosť.  
+		Spolu so svojím tímom sa budeš snažiť získať <em>vplyv</em>, objavovať pravdu ukrytú v spomienkach a rozhodovať o chode alternatívnych dejín tejto hry. Podarí sa vám poraziť moc komunistického režimu? Alebo stihnú prísť okupačné vojská skôr ako sa ľud postaví režimu?		</p>
+
+		<h3>Kedy a kde?</h3>
+		<p>
+		<strong>📅 Dátum:</strong> 14. november 2025<br>
+		<strong>🕓 Začiatok:</strong> 16:00<br>
+		<strong>📍 Miesto stretnutia:</strong> <a  href="https://maps.app.goo.gl/PLBVFpy71AZurhmA6">Hviezdoslavovo námestie (pri šachovnici)</a><br>
+		<strong>⌛ Trvanie:</strong> približne do 19:15
+		</p>
+
+		<h3>Čo si vziať so sebou?</h3>
+		<ul>
+		  <li>Nabitý telefón s prístupom na internet (ak máte, nie je nutné, zídu sa vám aj sluchátka)</li>
+		  <li>Písadlo a papier</li>
+		  <li>Dobové oblečenie – štýl 80. rokov (svetre, vetrovky, rifľové bundy, kockované košele...)</li>
+		</ul>
+
+		<p>
+		Ak sa chceš zúčastniť, <strong>vyplň <a href="https://forms.gle/9EGQnkFkU4GUrmU57"> prihlášku </a> do stredy 12. 11. 2025</strong>.  
+		Priprav sa na cestu v čase, ktorá ti pripomenie, že sloboda nie je samozrejmosť.
+		</p>
+
     </section>
 
     <!-- HRA -->
@@ -483,14 +511,70 @@ $loggedTeamName = $_SESSION['team_name'] ?? ($_COOKIE['team_name'] ?? '');
 
     <!-- PRAVIDLÁ -->
     <section id="rules" class="panel" hidden>
-      <h3>Pravidlá</h3>
-      <ul>
-        <li>Začiatok: <strong>14. 11. 2025</strong>, miesto štartu podľa inštrukcií organizátorov.</li>
-        <li>Herný čas: každých 5 min v reále = 1 deň v roku 1989.</li>
-        <li>Úlohy prinášajú body (vplyv); niektoré sa míňajú časom.</li>
-        <li>Dodržuj bezpečnosť a pokyny organizátorov. Hra prebieha v reálnom meste.</li>
-        <li>Po dokončení úlohy uvidíš výsledné body a úlohu už nepôjde hrať znovu.</li>
-      </ul>
+      <h3>Pravidlá hry</h3>
+
+		<h4>Začiatok a priebeh hry</h4>
+		<ul>
+		  <li>Hra sa začne <strong>14. 11. 2025 o 16:00</strong>. Účastníci by mali prísť včas, odporúčame príchod aspoň 15 minút pred začiatkom.</li>
+		  <li>Hra bude prebiehať v troch tímoch. Zoznamy členov tímov budú zverejnené pred začiatkom hry.</li>
+		  <li>V rámci tímu sa môžete rozdeliť do menších skupín. Každá skupina by mala mať minimálne:
+			<ul>
+			  <li>jedno <strong>pero a papier</strong>,</li>
+			  <li>jeden <strong>telefón s prístupom na internet</strong> (odporúča sa zapnuté dáta).</li>
+			</ul>
+		  </li>
+		</ul>
+
+		<h4>Cieľ hry</h4>
+		<ul>
+		  <li>Vaším cieľom je spoločne ako všetky tímy dosiahnuť <strong>aspoň 2/3 celkového vplyvu</strong>.</li>
+		  <li>Aktuálny stav vplyvu sa zobrazuje v sekcii <em>Hra</em>.</li>
+		  <li>Po dosiahnutí cieľa budete môcť v závere hry klásť nároky na zostavenie novej vlády (mechanika bude odhalená na konci hry ale oplatí sa vám mať čo najväčší vpyv).</li>
+		</ul>
+
+		<h4>Úlohy</h4>
+		<ul>
+		  <li>Úlohy sú dostupné v sekcii <em>Hra</em> pod grafom vplyvu. Každá úloha je spojená so <strong>spomienkou</strong>, ktorá približuje časť histórie/alternatívnej histórie.</li>
+		  <li>Úlohy môžu byť:
+			<ul>
+			  <li>univerzálne (plniteľné kdekoľvek),</li>
+			  <li>časované (s obmädzeným časom plnenia od prvého otvorenia vašim tímom),</li>
+			  <li>miestne (vyžadujú návštevu konkrétneho miesta alebo interakciu s predmetmi).</li>
+			</ul>
+		  </li>
+		  <li>Úlohy sa dajú plniť v ľubovoľnom poradí bez ohľadu na číslovanie.</li>
+		  <li>Niektoré úlohy môžu vyžadovať <strong>povolenie prístupu k polohe (GPS)</strong>.</li>
+		  <li style="color: red;">Za niektoré úlohy možno <strong>aj stratiť body vplyvu</strong>.</li>
+		</ul>
+
+		<h4>Tuzex (Obchod)</h4>
+		<ul>
+		  <li>Na rôznych miestach v meste sú ukryté kódy označené logom mestskej hry.</li>
+		  <li>Po ich nájdení a nahraní do Tuzexu získate <strong>Bony</strong>, ktoré následne môžete použiť na nákup.</li>
+		  <li>V obchode je možné nakupovať herné predmety aj malé odmeny (napr. sladkosti).</li>
+		  <li>Zakúpené sladkosti si môžete vyzdvihnúť <strong>pri šachovnici</strong> na Hviezdoslavovom námestí.</li>
+		</ul>
+
+		<h4>Rádio</h4>
+		<ul>
+		  <li>V sekcii <em>Rádio</em> môžete počúvať dobové piesne z 80. rokov.</li>
+		  <li>Každých približne 30 minút bude odvysielaná <strong>reportáž so správami zo zahraničia</strong>, ktoré môžu pomôcť pri plnení úloh.</li>
+		  <li>Rádio môžete použiť aj len na vytvorenie atmosféry počas hry.</li>
+		</ul>
+
+		<h4>Noviny</h4>
+		<ul>
+		  <li>V sekcii <em>Noviny</em> budú zverejňované lokálne správy s rôznymi hernými vplyvmi.</li>
+		  <li>Niektoré správy môžu:
+			<ul>
+			  <li>pomôcť pri riešení úloh</li>
+			  <li>odomknúť bonusové úlohy</li>
+			  <li>alebo priamo zmeniť rozloženie vplyvu (napr. zvýšenie vplyvu určitej frakcie).</li>
+			</ul>
+		  </li>
+		  <li>V rámci novín platí, že <strong>3 minúty v reálnom čase zodpovedajú jednému dňu v hre</strong>.</li>
+		</ul>
+
     </section>
 
     <!-- PRIHLÁSENIE -->
@@ -513,6 +597,7 @@ $loggedTeamName = $_SESSION['team_name'] ?? ($_COOKIE['team_name'] ?? '');
     <label>Meno tímu
       <input type="text" name="team_name" value="<?=h($_COOKIE['team_name'] ?? '')?>" required>
     </label>
+	<br>
     <label>Heslo
       <input type="password" name="team_pass" required>
     </label>

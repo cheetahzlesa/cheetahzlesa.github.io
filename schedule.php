@@ -2,6 +2,9 @@
 // schedule.php (mysqli verzia)
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Europe/Bratislava');
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+header('Content-Type: application/json; charset=utf-8');
 
 // ==== DB pripojenie (podľa tvojho zadania) ====
 require_once 'configdb.php';
@@ -10,7 +13,6 @@ if ($mysqli->connect_errno) {
   echo json_encode(['error'=>true,'message'=>'Chyba pri spojení: '.$mysqli->connect_error]);
   exit;
 }
-$mysqli->select_db('mestska_hra');
 
 // ---- KONŠTANTY ----
 define('SLOT_SECONDS', 1800);                 // 30 min
